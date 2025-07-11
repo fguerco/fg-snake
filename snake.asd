@@ -4,6 +4,9 @@
   :author "Felipe Guerço Oliveira <felipeguerco@gmail.com>"
   :license "MIT"
   :depends-on (:cl-tui :bordeaux-threads)
+  :build-operation "asdf:program-op"
+  :entry-point "fg-snake:run"
   :components ((:module "src"
                 :serial t
-                :components ((:file "snake")))))
+                :components ((:file "core")
+                             (:file "snake")))))
