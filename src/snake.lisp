@@ -25,9 +25,11 @@
         while (find food *snake* :test #'equalp)
         finally (return (setf *food* food))))
 
+
 (defun increase-speed ()
   (when (zerop (mod (length *snake*) 5))
-    (setf *tick* (* *tick* 0.85))))
+    (setf *tick* (* *tick* *difficulty*))))
+
 
 (defun copy-head ()
   (copy-list head))
@@ -82,10 +84,6 @@
              (snake-collision-p x y)))))
 
 
-(defun random-item (seq)
-  (elt seq (random (length seq))))
-
-
 (defun pick-direction ()
   (loop for dir = (car (random-item *moves*))
         until (valid-move-p dir)
@@ -122,12 +120,12 @@
       ((:key-left #\a #\4) :west))))
 
 
-
 (define-worker-thread (auto-walk)
   (loop
     (move *direction*)
     (refresh)
     (sleep *tick*)))
+
 
 (define-worker-thread (collect-input)
   (loop
@@ -138,8 +136,10 @@
          ((:north :south :east :west)
           (on-direction-chosen input)))))
 
+
 (defun game-over ()
   (auto-walk-stop))
+
 
 (define-frame board
     (simple-frame :render 'draw-board)

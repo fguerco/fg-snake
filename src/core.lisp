@@ -43,3 +43,6 @@
          (start-thread thread ,(format nil "thread-~a" name)
            ,@forms))
        (defun ,stop-name () (stop-thread thread)))))
+
+(defun random-item (seq)
+  (elt seq (random (length seq))))
