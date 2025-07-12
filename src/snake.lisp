@@ -7,17 +7,13 @@
 
 (in-package :fg-snake)
 
-;; directions with delta movement values
-(defparameter *moves*
-  '((:north 0 . -1)
-    (:south 0 . 1)
-    (:east 1 . 0)
-    (:west -1 . 0)))
-
 (defun generate-place ()
   (let ((x (random *size-x*))
         (y (random *size-y*)))
     (cons x y)))
+
+(defun new-snake ()
+  (setf *snake* (list (generate-place))))
 
 
 (defun spawn-food ()
@@ -54,21 +50,6 @@
           (+ (cdr head) y))))
 
 
-(defun move (&optional (direction *direction*))
-  (let* ((next (next-position direction))
-         (x (car next))
-         (y (cdr next))
-         (grow (equalp next *food*)))
-    (if grow
-        (push next *snake*)
-        (when neck (tail-to-head)))
-    (move-head x y)
-    (when grow
-      (spawn-food)
-      (increase-speed)))
-  *snake*)
-
-
 (defun snake-collision-p (x y)
   (let ((new-head (cons (+ (car head) x)
                         (+ (cdr head) y))))
@@ -84,15 +65,31 @@
              (snake-collision-p x y)))))
 
 
+(defun move (&optional (direction *direction*))
+  (if (valid-move-p direction)
+      (let* ((next (next-position direction))
+             (x (car next))
+             (y (cdr next))
+             (grow (equalp next *food*)))
+        (if grow
+            (push next *snake*)
+            (when neck (tail-to-head)))
+        (move-head x y)
+        (when grow
+          (spawn-food)
+          (increase-speed)))
+      (game-over)))
+
+
 (defun pick-direction ()
   (loop for dir = (car (random-item *moves*))
         until (valid-move-p dir)
-        finally (return dir)))
+        finally (setf *direction* dir)))
 
 
 (defun reset ()
-  (setf *snake* (list (generate-place)))
-  (setf *direction* (pick-direction))
+  (new-snake)
+  (pick-direction)
   (spawn-food))
 
 
@@ -105,10 +102,8 @@
 
 
 (defun on-direction-chosen (direction)
-  (auto-walk-stop)
-  (setf *direction* direction)
-  (refresh)
-  (auto-walk))
+  (add-log (format nil "new direction chosen: ~a" direction))
+  (move (setf *direction* direction)))
 
 
 (defun get-input ()
@@ -117,48 +112,68 @@
       ((:key-up #\w #\8) :north)
       ((:key-down #\s #\2) :south)
       ((:key-right #\d #\6) :east)
-      ((:key-left #\a #\4) :west))))
+      ((:key-left #\a #\4) :west)
+      (#\r :reset)
+      (#\escape :quit))))
 
 
-(define-worker-thread (auto-walk)
-  (loop
-    (move *direction*)
-    (refresh)
-    (sleep *tick*)))
-
-
-(define-worker-thread (collect-input)
-  (loop
-    for input = (get-input)
-    do (case input
-         (:quit (return))
-         (:refresh (reset))
-         ((:north :south :east :west)
-          (on-direction-chosen input)))))
+(defun collect-input ()
+  (make-thread
+   (lambda ()
+     (loop
+       for input = (get-input)
+       do (setf *input* (append *input* (list input)))
+          (add-log (format nil "input: ~a" *input*))))
+   :name "collect-input-thread"))
 
 
 (defun game-over ()
-  (auto-walk-stop))
+  (setf *done* t))
 
+
+(define-frame main
+    (container-frame :split-type :horizontal)
+    :on :root)
 
 (define-frame board
     (simple-frame :render 'draw-board)
-    :on :root
-    :w *size-x*
-    :h *size-y*)
+    :on main
+    :w *size-x*)
 
+(define-frame log (log-frame) :on main)
 
-(defun game-run ()
-  (reset)
+(defun add-log (message)
+  (append-line 'log message))
+
+(defun start ()
   (with-screen ()
-    (refresh)
+    (reset)
     (collect-input)
-    (auto-walk)
-    (loop)))
+    (loop
+      with ellapsed = 0
+      for last = 0 then time
+      for time = (unix-time-millis)
+      for delta = 0 then (- time last)
+      until *done*
+      for input = (pop *input*)
+      do
+         (case input
+           (:quit (progn (setf *done* t)))
+           (:reset (reset))
+           ((:north :south :east :west)
+            (on-direction-chosen input)
+            (setf ellapsed 0))
+           (t (if (>= ellapsed *tick*)
+                  (progn
+                    (move)
+                    (setf ellapsed 0))
+                  (incf ellapsed delta))))
+         (refresh)
+         (sleep 1/60))))
 
 
-(defun run ()
-  (handler-case (game-run)
+(defun main ()
+  (handler-case (start)
     (error (c)
       (format t "Error occurred: ~a" c)
       (values 0 c))))

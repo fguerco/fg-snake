@@ -5,7 +5,7 @@
   :license "MIT"
   :depends-on (:cl-tui :bordeaux-threads)
   :build-operation "asdf:program-op"
-  :entry-point "fg-snake:run"
+  :entry-point "fg-snake:main"
   :components ((:module "src"
                 :serial t
                 :components ((:file "core")
