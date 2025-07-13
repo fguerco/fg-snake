@@ -1,8 +1,9 @@
 ;; cl-tui: https://40ants.com/lisp-project-of-the-day/2020/07/0118-cl-tui.html
 
+;; TODO add more elements to ui (snake size, time)
+;; TODO implement pause
 ;; TODO implement game over
 ;; TODO handle more keys
-;; TODO add more elements to ui (snake size, time)
 ;; TODO create state to avoid rendering the entire board every time
 
 (in-package :fg-snake)
@@ -114,18 +115,20 @@
       ((:key-right #\d #\6) :east)
       ((:key-left #\a #\4) :west)
       (#\r :reset)
-      (#\escape :quit))))
+      ((#\p #\space) :pause)
+      ((#\q #\escape) :quit))))
 
 
 (defun collect-input ()
-  (make-thread
-   (lambda ()
-     (loop
-       for input = (get-input)
-       do (setf *input* (append *input* (list input)))
-          (add-log (format nil "input: ~a" *input*))))
-   :name "collect-input-thread"))
+  (loop
+    for action = (get-input)
+    do (queue-action action)
+       (add-log (format nil "actions: ~a" *actions*))))
 
+
+(defun collect-input-thread ()
+  (sb-thread:make-thread 'collect-input
+                         :name "collect-input-thread"))
 
 (defun game-over ()
   (setf *done* t))
@@ -145,31 +148,38 @@
 (defun add-log (message)
   (append-line 'log message))
 
-(defun start ()
-  (with-screen ()
-    (reset)
-    (collect-input)
-    (loop
-      with ellapsed = 0
+(defun game-loop ()
+  (loop
+      with ellapsed = 0 and paused = nil and done = nil
       for last = 0 then time
       for time = (unix-time-millis)
       for delta = 0 then (- time last)
-      until *done*
-      for input = (pop *input*)
+      until done
+      for action = (pop-action)
       do
-         (case input
-           (:quit (progn (setf *done* t)))
+         (case action
+           (:quit (setf done t))
            (:reset (reset))
+           (:pause (setf paused (not paused)))
            ((:north :south :east :west)
-            (on-direction-chosen input)
-            (setf ellapsed 0))
-           (t (if (>= ellapsed *tick*)
+            (unless paused
+              (on-direction-chosen action)
+              (setf ellapsed 0)))
+           (t
+            (unless paused
+              (if (>= ellapsed *tick*)
                   (progn
                     (move)
                     (setf ellapsed 0))
-                  (incf ellapsed delta))))
+                  (incf ellapsed delta)))))
          (refresh)
-         (sleep 1/60))))
+         (sleep 1/60)))
+
+(defun start ()
+  (with-screen ()
+    (reset)
+    (collect-input-thread)
+    (game-loop)))
 
 
 (defun main ()

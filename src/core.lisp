@@ -1,7 +1,6 @@
 (defpackage :fg-snake
   (:use :cl)
   (:use :cl-tui)
-  (:use :bt2)
   (:export :main))
 
 (in-package :fg-snake)
@@ -13,8 +12,7 @@
 (defparameter *direction* nil)
 (defparameter *snake* nil)
 (defparameter *food* nil)
-(defparameter *input* nil)
-(defparameter *done* nil)
+(defparameter *actions* nil)
 
 ;; directions with delta movement values
 (defparameter *moves*
@@ -32,6 +30,11 @@
 (define-symbol-macro at-west-edge (zerop (car head)))
 (define-symbol-macro at-east-edge (= (1- *size-x*) (car head)))
 
+(defun queue-action (action)
+  (setf *actions* (append *actions* (list action))))
+
+(defun pop-action ()
+  (pop *actions*))
 
 (defun random-item (seq)
   (elt seq (random (length seq))))

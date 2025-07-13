@@ -1,7 +1,7 @@
-lisp = sbcl --noinform --quit  --eval
+lisp = sbcl --noinform --quit --eval
 
 build: deps
-	$(lisp) "(asdf:operate :build-op :fg-snake)"
+	$(lisp) '(asdf:operate :build-op :fg-snake)'
 
 deps:
 	$(lisp) '(ql:quickload "fg-snake")'
