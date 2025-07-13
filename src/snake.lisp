@@ -1,10 +1,6 @@
-;; cl-tui: https://40ants.com/lisp-project-of-the-day/2020/07/0118-cl-tui.html
 
-;; TODO add more elements to ui (snake size, time)
-;; TODO implement pause
 ;; TODO implement game over
-;; TODO handle more keys
-;; TODO create state to avoid rendering the entire board every time
+;; TODO clean up code
 
 (in-package :fg-snake)
 
@@ -25,7 +21,7 @@
 
 (defun increase-speed ()
   (when (zerop (mod (length *snake*) 5))
-    (setf *tick* (* *tick* *difficulty*))))
+    (add-log "Level ~a!" (incf *level*))))
 
 
 (defun copy-head ()
@@ -89,21 +85,14 @@
 
 
 (defun reset ()
+  (setf *level* *initial-level*)
+  (setf *steps* 0)
   (new-snake)
   (pick-direction)
   (spawn-food))
 
 
-(defun draw-board (&key frame)
-  (destructuring-bind (fx . fy) *food*
-    (put-char frame fy fx #\$))
-  (loop for (x . y) in *snake*
-        and h = t then nil
-        do (put-char frame y x (if h #\@ #\#))))
-
-
 (defun on-direction-chosen (direction)
-  (add-log (format nil "new direction chosen: ~a" direction))
   (move (setf *direction* direction)))
 
 
@@ -122,8 +111,7 @@
 (defun collect-input ()
   (loop
     for action = (get-input)
-    do (queue-action action)
-       (add-log (format nil "actions: ~a" *actions*))))
+    do (queue-action action)))
 
 
 (defun collect-input-thread ()
@@ -131,59 +119,50 @@
                          :name "collect-input-thread"))
 
 (defun game-over ()
-  (setf *done* t))
+  (add-log "Ouch! Can't go this way :'("))
 
 
-(define-frame main
-    (container-frame :split-type :horizontal)
-    :on :root)
-
-(define-frame board
-    (simple-frame :render 'draw-board)
-    :on main
-    :w *size-x*)
-
-(define-frame log (log-frame) :on main)
-
-(defun add-log (message)
-  (append-line 'log message))
+(defmacro pause (var)
+  `(progn
+     (setf ,var (not ,var))
+     (add-log (if ,var "Paused" "Resumed"))))
 
 (defun game-loop ()
+  (mapc #'add-log *welcome-msg*)
   (loop
-      with ellapsed = 0 and paused = nil and done = nil
-      for last = 0 then time
-      for time = (unix-time-millis)
-      for delta = 0 then (- time last)
-      until done
-      for action = (pop-action)
-      do
-         (case action
-           (:quit (setf done t))
-           (:reset (reset))
-           (:pause (setf paused (not paused)))
-           ((:north :south :east :west)
-            (unless paused
-              (on-direction-chosen action)
-              (setf ellapsed 0)))
-           (t
-            (unless paused
-              (if (>= ellapsed *tick*)
-                  (progn
-                    (move)
-                    (setf ellapsed 0))
-                  (incf ellapsed delta)))))
-         (refresh)
-         (sleep 1/60)))
+    with ellapsed = 0 and paused = nil
+    for last = 0 then time
+    for time = (unix-time-millis)
+    for delta = 0 then (- time last)
+    for action = (pop-action)
+    do
+       (case action
+         (:quit (return))
+         (:reset (reset))
+         (:pause (pause paused))
+         ((:north :south :east :west)
+          (unless paused
+            (on-direction-chosen action)
+            (incf *steps*)
+            (setf ellapsed 0)))
+         (t
+          (unless paused
+            (if (>= ellapsed (calculate-step-interval))
+                (progn
+                  (move)
+                  (incf *steps*)
+                  (setf ellapsed 0))
+                (incf ellapsed delta)))))
+       (refresh)
+       (sleep 1/60)))
+
 
 (defun start ()
-  (with-screen ()
-    (reset)
+  (reset)
+  (create-ui
     (collect-input-thread)
     (game-loop)))
 
 
 (defun main ()
-  (handler-case (start)
-    (error (c)
-      (format t "Error occurred: ~a" c)
-      (values 0 c))))
+  (start))
