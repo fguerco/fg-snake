@@ -62,7 +62,7 @@
 
 (defun draw-fruit (frame offset)
   (destructuring-bind (x . y) *food*
-    (put-char frame (+ offset y) (+ offset x) #\$)))
+    (put-char frame (+ offset y) (+ offset x) *food-tile*)))
 
 
 (defun draw-snake (frame offset)
