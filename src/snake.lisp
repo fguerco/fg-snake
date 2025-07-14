@@ -7,13 +7,13 @@
 (defparameter *input-mutex* (sb-thread:make-mutex :name "input"))
 
 
-(defun queue-action (action)
-  (sb-thread:with-mutex (*input-mutex*)
+(defun queue-action (action &optional (mutex *input-mutex*))
+  (sb-thread:with-mutex (mutex)
     (setf *actions* (append *actions* (list action)))))
 
 
-(defun pop-action ()
-  (sb-thread:with-mutex (*input-mutex*)
+(defun pop-action (&optional (mutex *input-mutex*))
+  (sb-thread:with-mutex (mutex)
     (pop *actions*)))
 
 
