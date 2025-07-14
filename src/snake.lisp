@@ -4,6 +4,19 @@
 
 (in-package :fg-snake)
 
+(defparameter *input-mutex* (sb-thread:make-mutex :name "input"))
+
+
+(defun queue-action (action)
+  (sb-thread:with-mutex (*input-mutex*)
+    (setf *actions* (append *actions* (list action)))))
+
+
+(defun pop-action ()
+  (sb-thread:with-mutex (*input-mutex*)
+    (pop *actions*)))
+
+
 (defun generate-place ()
   (let ((x (random *size-x*))
         (y (random *size-y*)))
