@@ -9,5 +9,6 @@
   :components ((:module "src"
                 :serial t
                 :components ((:file "core")
+                             (:file "reactive")
                              (:file "ui")
                              (:file "snake")))))

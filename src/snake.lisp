@@ -88,7 +88,7 @@
         (when grow
           (spawn-food)
           (increase-speed)))
-      (game-over)))
+      (wrong-move)))
 
 
 (defun pick-direction ()
@@ -128,10 +128,10 @@
 
 
 (defun collect-input-thread ()
-  (sb-thread:make-thread 'collect-input
+  (sb-thread:make-thread #'collect-input
                          :name "collect-input-thread"))
 
-(defun game-over ()
+(defun wrong-move ()
   (add-log "Ouch! Can't go this way :'("))
 
 
