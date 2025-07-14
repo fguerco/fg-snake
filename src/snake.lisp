@@ -165,4 +165,5 @@
 
 
 (defun main ()
+  (load-args)
   (start))

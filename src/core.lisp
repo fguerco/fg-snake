@@ -28,6 +28,11 @@
     "Pause with 'p' or Space,"
     "Restart with 'r'"
     "Quit with 'q' or ESC. Have fun!"))
+(defparameter *help*
+  '("Command line arguments:"
+    "   -help|-h           show this info"
+    "   -level|-lv <val>     start with level <level>"))
+
 
 ;; directions with delta movement values
 (defparameter *moves*
@@ -45,12 +50,35 @@
 (define-symbol-macro at-west-edge (zerop (car head)))
 (define-symbol-macro at-east-edge (= (1- *size-x*) (car head)))
 
-(defun queue-action (action)
-  (setf *actions* (append *actions* (list action))))
+;; commands, function, is switch, help message
+(defparameter *args*
+  '((("-help" "-h") help 1 "show this info")
+   (("-level" "-lv") set-level 0 "start with level")))
 
 
-(defun pop-action ()
-  (pop *actions*))
+(defun help ()
+  (format t "Command line options:~%")
+  (loop for (cmds fn switch info) in *args*
+        do (format t "  ~25@<~{~a~^|~}~[ <val>~;~]~>~a~2:*~[ <val>~;~]~%"
+                   cmds switch info))
+  (uiop:quit 0))
+
+
+(defun set-level (arg)
+  (setf *initial-level* (parse-integer arg)))
+
+
+(defun find-arg (arg &optional (args *args*))
+  (loop for x in args
+        if (find arg (car x) :test #'string-equal)
+          return x))
+
+
+(defun load-args (&optional (args (uiop:command-line-arguments)))
+  (loop while args
+        for (cmds fn switch info) = (find-arg (pop args))
+        for next-arg = (when (zerop (or switch 1)) (list (pop args)))
+        do (when fn (apply fn next-arg))))
 
 
 (defun random-item (seq)
