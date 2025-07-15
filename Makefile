@@ -6,8 +6,5 @@ build: deps
 deps:
 	$(lisp) '(ql:quickload "fg-snake")'
 
-run: build
-	./fg-snake
-
 clean:
 	rm fg-snake
