@@ -48,14 +48,15 @@
 (define-symbol-macro at-west-edge (zerop (car head)))
 (define-symbol-macro at-east-edge (= (1- *size-x*) (car head)))
 
-;; commands, function, is switch, help message
+;; commands, function, is switch (no value), help message
 (defparameter *args*
   '((("-help" "-h") help 1 "show this info")
     (("-level" "-lv") set-level 0 "start with level")
     (("-no-fail") set-no-fail 1 "when a collision happens, lose points intstead of game over")))
 
 
-(defun set-no-fail () (setf *fail-on-collision* nil))
+(defun set-no-fail ()
+  (setf *fail-on-collision* nil))
 
 
 (defun help ()

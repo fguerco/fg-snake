@@ -18,13 +18,17 @@
       (game-over)
       (wrong-move)))
 
-(add-subscription *food-eaten* (x)
+;; TODO rethink about growing the snake here
+(add-subscription *food-eaten* (next)
+  (push next *snake*)
   (spawn-food)
   (increase-speed))
+
 
 (defun game-over ()
   (add-log "Game over. Press 'r' to start a new game")
   (setf *game-over* t))
+
 
 (defun queue-action (action &optional (mutex *input-mutex*))
   (sb-thread:with-mutex (mutex)
@@ -69,8 +73,8 @@
   (setf (cdr head) y))
 
 
-(defun tail-to-head ()
-  (setf *snake* (cons (copy-head) (butlast *snake*))))
+(defun tail-to-head (x y)
+  (setf *snake* (cons (cons x  y) (butlast *snake*))))
 
 
 (defun next-position (direction)
@@ -101,11 +105,10 @@
              (y (cdr next))
              (grow (equalp next *food*)))
         (if grow
-            (push next *snake*)
-            (when neck (tail-to-head)))
-        (move-head x y)
-        (when grow
-          (emit *food-eaten*)))
+            (emit *food-eaten* next)
+            (if neck
+                (tail-to-head x y)
+                (move-head x y))))
       (emit *collision*)))
 
 
@@ -127,8 +130,12 @@
   (add-log "New Game started"))
 
 
-(defun on-direction-chosen (direction)
-  (move (setf *direction* direction)))
+(defun advance (&optional (direction *direction* direction-supplied-p))
+  (when direction-supplied-p
+    (setf *direction* direction))
+  (move)
+  (incf *steps*)
+  (setf *ellapsed* 0))
 
 
 (defun get-input ()
@@ -162,7 +169,22 @@
      (add-log (if ,var "Paused" "Resumed"))))
 
 (defun game-running-p ()
-    (not (or *game-paused* *game-over*)))
+  (not (or *game-paused* *game-over*)))
+
+(defun process-action (action delta)
+  (case action
+    (:quit action)
+    (:reset (reset))
+    (:pause (unless *game-over* (toggle-pause *game-paused*)))
+    ((:north :south :east :west)
+     (when (game-running-p)
+       (advance action)))
+    (t
+     (when (game-running-p)
+       (if (>= *ellapsed* (calculate-step-interval))
+           (advance *direction*)
+           (incf *ellapsed* delta))))))
+
 
 (defun game-loop ()
   (loop
@@ -170,24 +192,8 @@
     for time = (unix-time-millis)
     for delta = 0 then (- time last)
     for action = (pop-action)
-    do
-       (case action
-         (:quit (return))
-         (:reset (reset))
-         (:pause (unless *game-over* (toggle-pause *game-paused*)))
-         ((:north :south :east :west)
-          (when (game-running-p)
-            (on-direction-chosen action)
-            (incf *steps*)
-            (setf *ellapsed* 0)))
-         (t
-          (when (game-running-p)
-            (if (>= *ellapsed* (calculate-step-interval))
-                (progn
-                  (move)
-                  (incf *steps*)
-                  (setf *ellapsed* 0))
-                (incf *ellapsed* delta)))))
+    do (when (eq (process-action action delta) :quit)
+         (return))
        (refresh)
        (sleep 1/60)))
 
