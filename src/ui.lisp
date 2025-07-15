@@ -29,7 +29,10 @@
 (defun draw-stats (&key frame)
   (put-text frame 1 1 "Level: ~a" *level*)
   (put-text frame 2 1 "Snake size: ~a" (length *snake*))
-  (put-text frame 3 1 "Steps taken: ~a" *steps*))
+  (put-text frame 3 1 "Steps taken: ~a" *steps*)
+  (unless *fail-on-collision*
+    (put-text frame 4 1 "No-fail mode")))
+
 
 
 (define-frame log (log-frame) :on right-bar)

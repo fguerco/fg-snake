@@ -23,15 +23,13 @@
 (defparameter *food* nil)
 (defparameter *actions* nil)
 (defparameter *steps* 0)
+(defparameter *score* 0)
+(defparameter *fail-on-collision* t)
 (defparameter *welcome-msg*
   '("Welcome! Move with arrow keys or wasd,"
     "Pause with 'p' or Space,"
     "Restart with 'r'"
     "Quit with 'q' or ESC. Have fun!"))
-(defparameter *help*
-  '("Command line arguments:"
-    "   -help|-h           show this info"
-    "   -level|-lv <val>     start with level <level>"))
 
 
 ;; directions with delta movement values
@@ -53,7 +51,11 @@
 ;; commands, function, is switch, help message
 (defparameter *args*
   '((("-help" "-h") help 1 "show this info")
-   (("-level" "-lv") set-level 0 "start with level")))
+    (("-level" "-lv") set-level 0 "start with level")
+    (("-no-fail") set-no-fail 1 "when a collision happens, lose points intstead of game over")))
+
+
+(defun set-no-fail () (setf *fail-on-collision* nil))
 
 
 (defun help ()

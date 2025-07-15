@@ -4,8 +4,27 @@
 
 (in-package :fg-snake)
 
+(defparameter *ellapsed* 0)
+(defparameter *game-paused* nil)
+(defparameter *game-over* nil)
 (defparameter *input-mutex* (sb-thread:make-mutex :name "input"))
+(defparameter *collision* (make-subject))
+(defparameter *food-eaten* (make-subject))
+(defparameter *player-action* (make-subject))
+(defparameter *snake-moved* (make-subject))
 
+(add-subscription *collision* (x)
+  (if *fail-on-collision*
+      (game-over)
+      (wrong-move)))
+
+(add-subscription *food-eaten* (x)
+  (spawn-food)
+  (increase-speed))
+
+(defun game-over ()
+  (add-log "Game over. Press 'r' to start a new game")
+  (setf *game-over* t))
 
 (defun queue-action (action &optional (mutex *input-mutex*))
   (sb-thread:with-mutex (mutex)
@@ -86,9 +105,8 @@
             (when neck (tail-to-head)))
         (move-head x y)
         (when grow
-          (spawn-food)
-          (increase-speed)))
-      (wrong-move)))
+          (emit *food-eaten*)))
+      (emit *collision*)))
 
 
 (defun pick-direction ()
@@ -98,11 +116,15 @@
 
 
 (defun reset ()
-  (setf *level* *initial-level*)
-  (setf *steps* 0)
+  (setf *level* *initial-level*
+        *steps* 0
+        *ellapsed* 0
+        *game-paused* nil
+        *game-over* nil)
   (new-snake)
   (pick-direction)
-  (spawn-food))
+  (spawn-food)
+  (add-log "New Game started"))
 
 
 (defun on-direction-chosen (direction)
@@ -122,9 +144,8 @@
 
 
 (defun collect-input ()
-  (loop
-    for action = (get-input)
-    do (queue-action action)))
+  (loop for action = (get-input)
+        do (queue-action action)))
 
 
 (defun collect-input-thread ()
@@ -135,15 +156,16 @@
   (add-log "Ouch! Can't go this way :'("))
 
 
-(defmacro pause (var)
+(defmacro toggle-pause (var)
   `(progn
      (setf ,var (not ,var))
      (add-log (if ,var "Paused" "Resumed"))))
 
+(defun game-running-p ()
+    (not (or *game-paused* *game-over*)))
+
 (defun game-loop ()
-  (mapc #'add-log *welcome-msg*)
   (loop
-    with ellapsed = 0 and paused = nil
     for last = 0 then time
     for time = (unix-time-millis)
     for delta = 0 then (- time last)
@@ -152,27 +174,28 @@
        (case action
          (:quit (return))
          (:reset (reset))
-         (:pause (pause paused))
+         (:pause (unless *game-over* (toggle-pause *game-paused*)))
          ((:north :south :east :west)
-          (unless paused
+          (when (game-running-p)
             (on-direction-chosen action)
             (incf *steps*)
-            (setf ellapsed 0)))
+            (setf *ellapsed* 0)))
          (t
-          (unless paused
-            (if (>= ellapsed (calculate-step-interval))
+          (when (game-running-p)
+            (if (>= *ellapsed* (calculate-step-interval))
                 (progn
                   (move)
                   (incf *steps*)
-                  (setf ellapsed 0))
-                (incf ellapsed delta)))))
+                  (setf *ellapsed* 0))
+                (incf *ellapsed* delta)))))
        (refresh)
        (sleep 1/60)))
 
 
 (defun start ()
-  (reset)
   (create-ui
+    (mapc #'add-log *welcome-msg*)
+    (reset)
     (collect-input-thread)
     (game-loop)))
 
