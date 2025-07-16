@@ -25,6 +25,10 @@
 (defparameter *steps* 0)
 (defparameter *score* 0)
 (defparameter *fail-on-collision* t)
+(defparameter *ellapsed* 0)
+(defparameter *game-paused* nil)
+(defparameter *game-over* nil)
+
 (defparameter *welcome-msg*
   '("Welcome! Move with arrow keys or wasd,"
     "Pause with 'p' or Space,"
@@ -48,41 +52,6 @@
 (define-symbol-macro at-west-edge (zerop (car head)))
 (define-symbol-macro at-east-edge (= (1- *size-x*) (car head)))
 
-;; commands, function, is switch (no value), help message
-(defparameter *args*
-  '((("-help" "-h") help 1 "show this info")
-    (("-level" "-lv") set-level 0 "start with level")
-    (("-no-fail") set-no-fail 1 "when a collision happens, lose points intstead of game over")))
-
-
-(defun set-no-fail ()
-  (setf *fail-on-collision* nil))
-
-
-(defun help ()
-  (format t "Command line options:~%")
-  (loop for (cmds fn switch info) in *args*
-        do (format t "  ~25@<~{~a~^|~}~[ <val>~;~]~>~a~2:*~[ <val>~;~]~%"
-                   cmds switch info))
-  (uiop:quit 0))
-
-
-(defun set-level (arg)
-  (setf *initial-level* (parse-integer arg)))
-
-
-(defun find-arg (arg &optional (args *args*))
-  (loop for x in args
-        if (find arg (car x) :test #'string-equal)
-          return x))
-
-
-(defun load-args (&optional (args (uiop:command-line-arguments)))
-  (loop while args
-        for (cmds fn switch info) = (find-arg (pop args))
-        for next-arg = (when (zerop (or switch 1)) (list (pop args)))
-        do (when fn (apply fn next-arg))))
-
 
 (defun random-item (seq)
   (elt seq (random (length seq))))
@@ -97,8 +66,10 @@
   (cdr (assoc level *diff-table* :test #'<=)))
 
 
-(defun calculate-step-interval (&optional (level *level*))
-  (if (= level 1) *initial-step-interval*
+(defun calculate-step-interval (&optional
+                                  (level *level*)
+                                  (step-interval *initial-step-interval*))
+  (if (= level 1) step-interval
       (* (difficulty level)
-         (calculate-step-interval (1- level)))))
+         (calculate-step-interval (1- level) step-interval))))
 

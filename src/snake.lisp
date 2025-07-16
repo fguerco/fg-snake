@@ -1,25 +1,19 @@
 
-;; TODO implement game over
 ;; TODO clean up code
 
 (in-package :fg-snake)
 
-(defparameter *ellapsed* 0)
-(defparameter *game-paused* nil)
-(defparameter *game-over* nil)
 (defparameter *input-mutex* (sb-thread:make-mutex :name "input"))
-(defparameter *collision* (make-subject))
-(defparameter *food-eaten* (make-subject))
-(defparameter *player-action* (make-subject))
-(defparameter *snake-moved* (make-subject))
 
-(add-subscription *collision* (x)
+
+(defun collision ()
   (if *fail-on-collision*
       (game-over)
       (wrong-move)))
 
+
 ;; TODO rethink about growing the snake here
-(add-subscription *food-eaten* (next)
+(defun food-eaten (next)
   (push next *snake*)
   (spawn-food)
   (increase-speed))
@@ -105,11 +99,11 @@
              (y (cdr next))
              (grow (equalp next *food*)))
         (if grow
-            (emit *food-eaten* next)
+            (food-eaten next)
             (if neck
                 (tail-to-head x y)
                 (move-head x y))))
-      (emit *collision*)))
+      (collision)))
 
 
 (defun pick-direction ()
