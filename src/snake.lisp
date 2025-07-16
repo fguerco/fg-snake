@@ -186,8 +186,8 @@
     for time = (unix-time-millis)
     for delta = 0 then (- time last)
     for action = (pop-action)
-    do (when (eq (process-action action delta) :quit)
-         (return))
+    for result = (process-action action delta)
+    do (when (eq result :quit) (return))
        (refresh)
        (sleep 1/60)))
 
