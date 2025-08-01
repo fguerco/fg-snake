@@ -8,8 +8,9 @@
   :entry-point "fg-snake:main"
   :components ((:module "src"
                 :serial t
-                :components ((:file "core")
-                             (:file "cmd-line")
+                :components ((:file "package")
                              (:file "reactive")
+                             (:file "core")
+                             (:file "cmd-line")
                              (:file "ui")
                              (:file "snake")))))

@@ -27,12 +27,15 @@
     :on right-bar)
 
 (defun draw-stats (&key frame)
-  (put-text frame 1 1 "Level: ~a" *level*)
-  (put-text frame 2 1 "Snake size: ~a" (length *snake*))
-  (put-text frame 3 1 "Steps taken: ~a" *steps*)
-  (unless *fail-on-collision*
-    (put-text frame 4 1 "No-fail mode")))
-
+  (let ((y 0))
+    (flet ((text (text &rest args)
+             (apply #'put-text (list* frame (incf y) 1 text args))))
+      (text "Level: ~a" *level*)
+      (text "Score: ~a" *score*)
+      (text "Snake size: ~a" (length *snake*))
+      (text "Steps taken: ~a" *steps*)
+      (unless *fail-on-collision*
+        (text "No-fail mode")))))
 
 
 (define-frame log (log-frame) :on right-bar)
@@ -45,17 +48,23 @@
   `(with-screen ()
      ,@forms))
 
+(defun draw-cage-line (frame x y size)
+  (dotimes (i (1+ size))
+    (put-char frame y (+ x i) *cage-tile*)))
+
+(defun draw-cage-column (frame x y size)
+  (dotimes (i size)
+    (put-char frame (+ y i) x *cage-tile*)))
+
 
 (defun draw-cage-top-and-bottom (frame offset)
-  (loop for y in (list (1- offset) (+ offset *size-y*))
-        do (loop for x from (1- offset) upto (+ offset *size-x*)
-                 do (put-char frame y x *cage-tile*))))
+  (draw-cage-line frame (1- offset) (1- offset) (1+ *size-x*))
+  (draw-cage-line frame (1- offset) (+ offset *size-y*) (1+ *size-x*)))
 
 
 (defun draw-cage-sides (frame offset)
-  (loop for y from offset upto (+ offset *size-y*)
-        do (loop for x in (list (1- offset) (+ offset *size-x*))
-                 do (put-char frame y x *cage-tile*))))
+  (draw-cage-column frame (1- offset) offset *size-y*)
+  (draw-cage-column frame (+ offset *size-x*) offset *size-y*))
 
 
 (defun draw-cage (frame offset)

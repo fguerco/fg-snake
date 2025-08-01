@@ -1,8 +1,3 @@
-(defpackage :fg-snake
-  (:use :cl)
-  (:use :cl-tui)
-  (:export :main))
-
 (in-package :fg-snake)
 
 ;;TODO find a smooth curve
@@ -43,6 +38,9 @@
     (:east 1 . 0)
     (:west -1 . 0)))
 
+(defparameter *food-eaten* (make-subject))
+(defparameter *collision-happened* (make-subject))
+
 
 (define-symbol-macro head (car *snake*))
 (define-symbol-macro neck (cadr *snake*))
@@ -57,11 +55,6 @@
   (elt seq (random (length seq))))
 
 
-(defun unix-time-millis ()
-  (multiple-value-bind (sec micro) (sb-ext:get-time-of-day)
-    (+ (* sec 1000) (floor micro 1000))))
-
-
 (defun difficulty (level)
   (cdr (assoc level *diff-table* :test #'<=)))
 
@@ -73,3 +66,23 @@
       (* (difficulty level)
          (calculate-step-interval (1- level) step-interval))))
 
+(defmacro toggle (var)
+  `(setf ,var (not ,var)))
+
+(defmacro push-to-back (obj list)
+  `(setf ,list (nconc ,list (list ,obj))))
+
+
+;; Score adjustments - thinking about moving this out of here
+
+(defun score-points (&optional (level *level*))
+  (* 5 (ceiling level 3)))
+
+(define-subscription *food-eaten* (next)
+  (incf *score* (score-points)))
+
+
+(define-subscription *collision-happened* (fail)
+  (unless fail
+    (when (minusp (decf *score* (score-points)))
+      (setf *score* 0))))

@@ -29,10 +29,7 @@
     (dolist (s (reverse subscribers))
       (funcall (subscription-action s) data))))
 
-
-(defmacro add-subscription (subject (var &rest filter-values) &body forms)
-  (let ((body (if (endp filter-values)
-                  `(progn ,@forms)
-                  `(if (find ,var (list ,@filter-values) :test #'equalp)
-                       (progn ,@forms)))))
-    `(subscribe ,subject (lambda (,var) ,body))))
+(defmacro define-subscription (subject (var) &body body)
+  `(subscribe ,subject (lambda (,var)
+                         (declare (ignorable ,var))
+                         ,@body)))

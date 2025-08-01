@@ -5,8 +5,13 @@
 
 (defparameter *input-mutex* (sb-thread:make-mutex :name "input"))
 
+(define-subscription *food-eaten* (next)
+  (push next *snake*)
+  (spawn-food)
+  (increase-speed))
 
-(defun collision ()
+
+(define-subscription *collision-happened* (fail)
   (if *fail-on-collision*
       (game-over)
       (wrong-move)))
@@ -14,9 +19,7 @@
 
 ;; TODO rethink about growing the snake here
 (defun food-eaten (next)
-  (push next *snake*)
-  (spawn-food)
-  (increase-speed))
+  (emit *food-eaten* next))
 
 
 (defun game-over ()
@@ -26,7 +29,7 @@
 
 (defun queue-action (action &optional (mutex *input-mutex*))
   (sb-thread:with-mutex (mutex)
-    (setf *actions* (append *actions* (list action)))))
+    (push-to-back action *actions*)))
 
 
 (defun pop-action (&optional (mutex *input-mutex*))
@@ -85,11 +88,12 @@
 
 (defun valid-move-p (direction)
   (destructuring-bind (x . y) (direction-data direction)
-    (not (or (and at-east-edge (= x 1))
-             (and at-west-edge (= x -1))
-             (and at-north-edge (= y -1))
-             (and at-south-edge (= y 1))
-             (snake-collision-p x y)))))
+    (unless (or (and at-east-edge (= x 1))
+                (and at-west-edge (= x -1))
+                (and at-north-edge (= y -1))
+                (and at-south-edge (= y 1))
+                (snake-collision-p x y))
+      direction)))
 
 
 (defun move (&optional (direction *direction*))
@@ -103,7 +107,7 @@
             (if neck
                 (tail-to-head x y)
                 (move-head x y))))
-      (collision)))
+      (emit *collision-happened* *fail-on-collision*)))
 
 
 (defun pick-direction ()
@@ -116,6 +120,7 @@
   (setf *level* *initial-level*
         *steps* 0
         *ellapsed* 0
+        *score* 0
         *game-paused* nil
         *game-over* nil)
   (new-snake)
@@ -157,36 +162,36 @@
   (add-log "Ouch! Can't go this way :'("))
 
 
-(defmacro toggle-pause (var)
-  `(progn
-     (setf ,var (not ,var))
-     (add-log (if ,var "Paused" "Resumed"))))
+(defun toggle-pause ()
+  (toggle *game-paused*)
+  (add-log "Game ~:[Resumed~;Paused~]" *game-paused*))
+
 
 (defun game-running-p ()
   (not (or *game-paused* *game-over*)))
+
 
 (defun process-action (action delta)
   (case action
     (:quit action)
     (:reset (reset))
-    (:pause (unless *game-over* (toggle-pause *game-paused*)))
+    (:pause (unless *game-over* (toggle-pause)))
     ((:north :south :east :west)
      (when (game-running-p)
        (advance action)))
     (t
      (when (game-running-p)
        (if (>= *ellapsed* (calculate-step-interval))
-           (advance *direction*)
+           (advance)
            (incf *ellapsed* delta))))))
 
 
 (defun game-loop ()
   (loop
     for last = 0 then time
-    for time = (unix-time-millis)
+    for time = (floor (get-internal-real-time) 1000)
     for delta = 0 then (- time last)
-    for action = (pop-action)
-    for result = (process-action action delta)
+    for result = (process-action (pop-action) delta)
     do (when (eq result :quit) (return))
        (refresh)
        (sleep 1/60)))
